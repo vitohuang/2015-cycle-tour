@@ -90,12 +90,31 @@ function Globe (){
     return deg / 180 * Math.PI;
   }
 
-  d3.json("world-110m.json", function(error, world) {
+		queue()
+		    .defer(d3.json, "world-110m.json")
+		    .defer(d3.tsv, "country-route.tsv")
+		    .await(ready);
+
+  function ready(error, world, names) {
     if (error) throw error;
 
     var land = topojson.feature(world, world.objects.land);
 		var countries = topojson.feature(world, world.objects.countries).features;
 		var borders = topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; });
+
+		  countries = names.map(function(country) {
+			  var ret = null;
+			  countries.forEach(function(countryShape) {
+				if (country.id == countryShape.id) {
+					countryShape.name = country.name;
+					ret = countryShape;
+				}
+			  });
+			  return ret;
+		  });
+
+			// Create colour scales
+			var colourScale = d3.scale.linear().domain([0, countries.length]).range([80, 50]);
 
     d3.timer(function(elapsed) {
 			// Clear everything
@@ -108,6 +127,14 @@ function Globe (){
       context.beginPath();
       path(land);
       context.fill();
+
+			// Draw the countries visited
+			for (var j = 0; j <= countries.length; j++) {
+				    context.fillStyle = "hsl(360, 100%, "+ colourScale(j) + "%)";
+						context.beginPath();
+						path(countries[j]);
+						context.fill();
+			}
 
 			// Draw the border
 			context.strokeStyle = my.bordersColour;
@@ -149,7 +176,7 @@ function Globe (){
       // globalCompositeOperation.
       context.restore();
     });
-  });
+  };
 
   return my;
 }
